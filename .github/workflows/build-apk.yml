@@ -3,7 +3,7 @@ name: CIO Skor APK
 on:
   push:
     paths:
-      - "CIO_Skor_APK_0_3_2.zip"
+      - "CIO_Skor_APK_*.zip"
       - ".github/workflows/build-apk.yml"
   workflow_dispatch:
 
@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Kaynak kodu al
         uses: actions/checkout@v4
 
@@ -30,10 +31,44 @@ jobs:
         run: |
           rm -rf cio-project
           mkdir -p cio-project
-          unzip -q CIO_Skor_APK_0_3_1.zip -d cio-project
 
+          echo "=== ZIP DOSYALARI ==="
+          find . -maxdepth 1 -type f -name 'CIO_Skor_APK_*.zip' -print
+
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name 'CIO_Skor_APK_*.zip' | sort -V | tail -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "HATA: CIO_Skor_APK_*.zip bulunamadı!"
+            echo "Depodaki dosyalar:"
+            ls -lah
+            exit 1
+          fi
+
+          echo "Kullanılan ZIP: $ZIP_FILE"
+
+          unzip -q "$ZIP_FILE" -d cio-project
+
+          echo "=== ZIP AÇILDI ==="
           echo "=== PROJE DOSYALARI ==="
-          find cio-project -maxdepth 3 -type f | sort
+          find cio-project -maxdepth 4 -type f | sort
+
+      - name: Proje klasörünü kontrol et
+        run: |
+          echo "=== CIO PROJECT ==="
+          ls -lah cio-project
+
+          if [ ! -d "cio-project/app" ]; then
+            echo "HATA: app klasörü bulunamadı!"
+            find cio-project -maxdepth 4 -type d | sort
+            exit 1
+          fi
+
+          if [ ! -f "cio-project/app/build.gradle.kts" ]; then
+            echo "HATA: app/build.gradle.kts bulunamadı!"
+            exit 1
+          fi
+
+          echo "Proje yapısı OK."
 
       - name: Gradle sürümünü kontrol et
         working-directory: cio-project
@@ -43,11 +78,22 @@ jobs:
       - name: Android APK derle
         working-directory: cio-project
         run: |
-          gradle :app:assembleDebug --no-daemon --stacktrace
+          echo "=== APK DERLEME BAŞLIYOR ==="
+          gradle :app:assembleDebug --no-daemon --stacktrace --info
+
+      - name: APK dosyasını kontrol et
+        run: |
+          echo "=== APK DOSYALARI ==="
+          find cio-project/app/build/outputs -type f -name "*.apk" -print
+
+          if ! find cio-project/app/build/outputs -type f -name "*.apk" | grep -q ".apk"; then
+            echo "HATA: APK oluşturulamadı!"
+            exit 1
+          fi
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: CIO-Skor-0.3.1
+          name: CIO-Skor-0.3.2
           path: cio-project/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
