@@ -22,10 +22,10 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Gradle 8.13 kur
+      - name: Gradle 9.5 kur
         uses: gradle/actions/setup-gradle@v5
         with:
-          gradle-version: "8.13"
+          gradle-version: "9.5"
 
       - name: Projeyi aç
         run: |
@@ -39,7 +39,6 @@ jobs:
 
           if [ -z "$ZIP_FILE" ]; then
             echo "HATA: CIO_Skor_APK_*.zip bulunamadı!"
-            echo "Depodaki dosyalar:"
             ls -lah
             exit 1
           fi
@@ -48,23 +47,27 @@ jobs:
 
           unzip -q "$ZIP_FILE" -d cio-project
 
-          echo "=== ZIP AÇILDI ==="
           echo "=== PROJE DOSYALARI ==="
           find cio-project -maxdepth 4 -type f | sort
 
-      - name: Proje klasörünü kontrol et
+      - name: Proje yapısını kontrol et
         run: |
-          echo "=== CIO PROJECT ==="
+          echo "=== PROJE KLASÖRÜ ==="
           ls -lah cio-project
 
           if [ ! -d "cio-project/app" ]; then
             echo "HATA: app klasörü bulunamadı!"
-            find cio-project -maxdepth 4 -type d | sort
             exit 1
           fi
 
           if [ ! -f "cio-project/app/build.gradle.kts" ]; then
             echo "HATA: app/build.gradle.kts bulunamadı!"
+            find cio-project -maxdepth 4 -type f | sort
+            exit 1
+          fi
+
+          if [ ! -f "cio-project/settings.gradle.kts" ]; then
+            echo "HATA: settings.gradle.kts bulunamadı!"
             exit 1
           fi
 
@@ -94,6 +97,6 @@ jobs:
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: CIO-Skor-0.3.2
+          name: CIO-Skor-APK
           path: cio-project/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
