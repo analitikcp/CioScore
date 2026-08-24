@@ -1,11 +1,11 @@
-    name: CIO Skor APK
+name: CIO Skor APK
 
-on:
+"on":
   workflow_dispatch:
   push:
     paths:
-      - "CIO_Skor_APK_0_1_0.zip"
-      - ".github/workflows/build-apk.yml"
+      - CIO_Skor_APK_0_1_0.zip
+      - .github/workflows/build-apk.yml
 
 jobs:
   build:
@@ -30,12 +30,11 @@ jobs:
       - name: Gradle 9.5 kur
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "9.5"
+          gradle-version: "9.5.0"
 
       - name: Android APK derle
         working-directory: cio-project
-        run: |
-          gradle :app:assembleDebug --no-daemon
+        run: gradle :app:assembleDebug --no-daemon
 
       - name: APK'yi yükle
         uses: actions/upload-artifact@v4
@@ -43,5 +42,3 @@ jobs:
           name: CIO-Skor-debug
           path: cio-project/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
-    
