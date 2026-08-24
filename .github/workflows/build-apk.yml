@@ -38,14 +38,12 @@ jobs:
       - name: Gradle sürümünü kontrol et
         working-directory: cio-project
         run: |
-          chmod +x gradlew
-          ./gradlew --version
+          gradle --version
 
       - name: Android APK derle
         working-directory: cio-project
         run: |
-          chmod +x gradlew
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          gradle :app:assembleDebug --no-daemon --stacktrace
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
