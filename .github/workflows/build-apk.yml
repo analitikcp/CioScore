@@ -4,8 +4,8 @@ name: CIO Skor APK
   workflow_dispatch:
   push:
     paths:
-      - CIO_Skor_APK_0_1_0.zip
-      - .github/workflows/build-apk.yml
+      - "CIO_Skor_APK_0_1_0.zip"
+      - ".github/workflows/build-apk.yml"
 
 jobs:
   build:
@@ -21,6 +21,22 @@ jobs:
           mkdir cio-project
           unzip -q CIO_Skor_APK_0_1_0.zip -d cio-project
 
+      - name: Gradle projesini bul
+        shell: bash
+        run: |
+          PROJECT_DIR=$(find "$GITHUB_WORKSPACE/cio-project" -name "settings.gradle.kts" -type f -print -quit | xargs dirname)
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "HATA: settings.gradle.kts bulunamadı."
+            find "$GITHUB_WORKSPACE/cio-project" -maxdepth 5 -type f | sort
+            exit 1
+          fi
+
+          echo "Gradle proje klasörü:"
+          echo "$PROJECT_DIR"
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
       - name: Java 17 kur
         uses: actions/setup-java@v4
         with:
@@ -33,12 +49,19 @@ jobs:
           gradle-version: "9.5.0"
 
       - name: Android APK derle
-        working-directory: cio-project
-        run: gradle :app:assembleDebug --no-daemon
+        shell: bash
+        run: |
+          cd "$PROJECT_DIR"
+          echo "Derleme klasörü:"
+          pwd
+          echo "Dosyalar:"
+          ls -la
+          echo "APK derleniyor..."
+          gradle :app:assembleDebug --no-daemon
 
       - name: APK'yi yükle
         uses: actions/upload-artifact@v4
         with:
           name: CIO-Skor-debug
-          path: cio-project/app/build/outputs/apk/debug/app-debug.apk
+          path: "${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk"
           if-no-files-found: error
