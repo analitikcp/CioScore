@@ -3,7 +3,7 @@ name: CIO Skor APK
 on:
   push:
     paths:
-      - "CIO_Skor_APK_0_3_1.zip"
+      - "CIO_Skor_APK_0_3_2.zip"
       - ".github/workflows/build-apk.yml"
   workflow_dispatch:
 
