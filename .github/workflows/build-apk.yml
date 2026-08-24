@@ -3,7 +3,7 @@ name: CIO Skor APK
 on:
   push:
     paths:
-      - "CIO_Skor_APK_0_2_1.zip"
+      - "CIO_Skor_APK_0_3_1.zip"
       - ".github/workflows/build-apk.yml"
   workflow_dispatch:
 
@@ -21,52 +21,35 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Gradle kur
+      - name: Gradle 8.13 kur
         uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: "8.13"
 
       - name: Projeyi aç
         run: |
           rm -rf cio-project
-          mkdir cio-project
-          unzip -q CIO_Skor_APK_0_2_1.zip -d cio-project
+          mkdir -p cio-project
+          unzip -q CIO_Skor_APK_0_3_1.zip -d cio-project
 
           echo "=== PROJE DOSYALARI ==="
-          find cio-project -maxdepth 4 -type f | sort
+          find cio-project -maxdepth 3 -type f | sort
 
-      - name: Gradle dosyasını bul
-        id: project
+      - name: Gradle sürümünü kontrol et
+        working-directory: cio-project
         run: |
-          BUILD_FILE=$(find cio-project -name "build.gradle.kts" -o -name "build.gradle" | head -n 1)
-
-          if [ -z "$BUILD_FILE" ]; then
-            echo "Gradle build dosyası bulunamadı!"
-            exit 1
-          fi
-
-          PROJECT_DIR=$(dirname "$BUILD_FILE")
-
-          while [ "$PROJECT_DIR" != "cio-project" ] && [ ! -f "$PROJECT_DIR/settings.gradle.kts" ] && [ ! -f "$PROJECT_DIR/settings.gradle" ]; do
-            PROJECT_DIR=$(dirname "$PROJECT_DIR")
-          done
-
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
-
-          echo "=== PROJE KLASÖRÜ ==="
-          echo "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew --version
 
       - name: Android APK derle
-        working-directory: ${{ steps.project.outputs.PROJECT_DIR }}
+        working-directory: cio-project
         run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-            ./gradlew assembleDebug --no-daemon
-          else
-            gradle assembleDebug --no-daemon
-          fi
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
-          name: CIO-Skor-debug
-          path: "**/app/build/outputs/apk/debug/app-debug.apk"
+          name: CIO-Skor-0.3.1
+          path: cio-project/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
