@@ -22,10 +22,10 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Gradle 9.5 kur
+      - name: Gradle 9.5.1 kur
         uses: gradle/actions/setup-gradle@v5
         with:
-          gradle-version: "9.5"
+          gradle-version: "9.5.1"
 
       - name: Projeyi aç
         run: |
