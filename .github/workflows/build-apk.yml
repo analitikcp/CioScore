@@ -24,11 +24,14 @@ jobs:
       - name: Gradle projesini bul
         shell: bash
         run: |
-          PROJECT_DIR=$(find "$GITHUB_WORKSPACE/cio-project" -name "settings.gradle.kts" -type f -print -quit | xargs dirname)
+          PROJECT_DIR=$(find "$GITHUB_WORKSPACE/cio-project" \
+            -name "settings.gradle.kts" \
+            -type f \
+            -print -quit | xargs dirname)
 
           if [ -z "$PROJECT_DIR" ]; then
             echo "HATA: settings.gradle.kts bulunamadı."
-            find "$GITHUB_WORKSPACE/cio-project" -maxdepth 5 -type f | sort
+            find "$GITHUB_WORKSPACE/cio-project" -maxdepth 6 -type f | sort
             exit 1
           fi
 
@@ -36,6 +39,26 @@ jobs:
           echo "$PROJECT_DIR"
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Kotlin Android pluginini kaldır
+        shell: bash
+        run: |
+          APP_GRADLE="$PROJECT_DIR/app/build.gradle.kts"
+
+          if [ ! -f "$APP_GRADLE" ]; then
+            echo "HATA: app/build.gradle.kts bulunamadı."
+            exit 1
+          fi
+
+          echo "Mevcut app/build.gradle.kts:"
+          cat "$APP_GRADLE"
+
+          # AGP 9.0 ile Kotlin desteği yerleşik olduğu için
+          # eski Kotlin Android pluginini kaldır.
+          sed -i '/org\.jetbrains\.kotlin\.android/d' "$APP_GRADLE"
+
+          echo "Düzeltilmiş app/build.gradle.kts:"
+          cat "$APP_GRADLE"
 
       - name: Java 17 kur
         uses: actions/setup-java@v4
@@ -52,11 +75,15 @@ jobs:
         shell: bash
         run: |
           cd "$PROJECT_DIR"
+
           echo "Derleme klasörü:"
           pwd
-          echo "Dosyalar:"
+
+          echo "Proje dosyaları:"
           ls -la
+
           echo "APK derleniyor..."
+
           gradle :app:assembleDebug --no-daemon
 
       - name: APK'yi yükle
