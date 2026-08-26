@@ -3,7 +3,8 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -27,56 +28,56 @@ jobs:
         with:
           gradle-version: '9.5.1'
 
-      - name: Proje klasörünü bul
+      - name: Projeyi bul
         shell: bash
         run: |
           echo "=== REPO ==="
           pwd
-          find . -maxdepth 3 -type f -name "settings.gradle.kts" -print
+          echo "=== KLASÖRLER ==="
+          find . -maxdepth 3 -type d -print
 
-          if [ -f "./settings.gradle.kts" ] && [ -d "./app" ]; then
-            echo "ROOT PROJE BULUNDU"
+          if [ -d "./app" ]; then
             echo "PROJECT_DIR=." >> "$GITHUB_ENV"
+            echo "ROOT PROJE BULUNDU"
+          elif [ -d "./CIO_Skor_APK_0_8_9_MAC_ESLESTIRME_4KAYNAK/app" ]; then
+            echo "PROJECT_DIR=./CIO_Skor_APK_0_8_9_MAC_ESLESTIRME_4KAYNAK" >> "$GITHUB_ENV"
+            echo "ALT KLASORDE PROJE BULUNDU"
           else
-            PROJECT_DIR=$(find . -type f -name "settings.gradle.kts" -print0 \
-              | xargs -0 -n1 dirname \
-              | while read d; do
-                  [ -d "$d/app" ] && echo "$d" && break
-                done)
-
-            if [ -z "$PROJECT_DIR" ]; then
-              echo "HATA: Android proje klasörü bulunamadı!"
-              find . -maxdepth 4 -print
-              exit 1
-            fi
-
-            echo "PROJE BULUNDU: $PROJECT_DIR"
-            echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+            echo "HATA: app klasoru bulunamadi!"
+            exit 1
           fi
 
-      - name: Proje yapısını kontrol et
+      - name: Proje yapisini kontrol et
+        shell: bash
         run: |
-          echo "=== PROJE ==="
           cd "$PROJECT_DIR"
+
+          echo "=== PROJE ==="
           pwd
           ls -la
+
           test -d app
           test -f settings.gradle.kts
           test -f app/build.gradle.kts
+
           echo "PROJE YAPISI OK"
 
       - name: APK derle
+        shell: bash
         run: |
           cd "$PROJECT_DIR"
           gradle --no-daemon :app:assembleDebug
 
       - name: APK kontrol
+        shell: bash
         run: |
           cd "$PROJECT_DIR"
+
           ls -lh app/build/outputs/apk/debug/
+
           test -f app/build/outputs/apk/debug/app-debug.apk
 
-      - name: APK yükle
+      - name: APK yukle
         uses: actions/upload-artifact@v4
         with:
           name: CIO-Score-0.8.9-debug
