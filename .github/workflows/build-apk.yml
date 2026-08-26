@@ -1,102 +1,84 @@
-name: CIO Skor APK
+name: Build Android APK
 
 on:
-  push:
-    paths:
-      - "CIO_Skor_APK_*.zip"
-      - ".github/workflows/build-apk.yml"
   workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-
-      - name: Kaynak kodu al
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Java 17 kur
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
       - name: Gradle 9.5.1 kur
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "9.5.1"
+          gradle-version: '9.5.1'
 
-      - name: Projeyi aç
+      - name: Proje klasörünü bul
+        shell: bash
         run: |
-          rm -rf cio-project
-          mkdir -p cio-project
+          echo "=== REPO ==="
+          pwd
+          find . -maxdepth 3 -type f -name "settings.gradle.kts" -print
 
-          echo "=== ZIP DOSYALARI ==="
-          find . -maxdepth 1 -type f -name 'CIO_Skor_APK_*.zip' -print
+          if [ -f "./settings.gradle.kts" ] && [ -d "./app" ]; then
+            echo "ROOT PROJE BULUNDU"
+            echo "PROJECT_DIR=." >> "$GITHUB_ENV"
+          else
+            PROJECT_DIR=$(find . -type f -name "settings.gradle.kts" -print0 \
+              | xargs -0 -n1 dirname \
+              | while read d; do
+                  [ -d "$d/app" ] && echo "$d" && break
+                done)
 
-          ZIP_FILE=$(find . -maxdepth 1 -type f -name 'CIO_Skor_APK_*.zip' | sort -V | tail -n 1)
+            if [ -z "$PROJECT_DIR" ]; then
+              echo "HATA: Android proje klasörü bulunamadı!"
+              find . -maxdepth 4 -print
+              exit 1
+            fi
 
-          if [ -z "$ZIP_FILE" ]; then
-            echo "HATA: CIO_Skor_APK_*.zip bulunamadı!"
-            ls -lah
-            exit 1
+            echo "PROJE BULUNDU: $PROJECT_DIR"
+            echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           fi
-
-          echo "Kullanılan ZIP: $ZIP_FILE"
-
-          unzip -q "$ZIP_FILE" -d cio-project
-
-          echo "=== PROJE DOSYALARI ==="
-          find cio-project -maxdepth 4 -type f | sort
 
       - name: Proje yapısını kontrol et
         run: |
-          echo "=== PROJE KLASÖRÜ ==="
-          ls -lah cio-project
+          echo "=== PROJE ==="
+          cd "$PROJECT_DIR"
+          pwd
+          ls -la
+          test -d app
+          test -f settings.gradle.kts
+          test -f app/build.gradle.kts
+          echo "PROJE YAPISI OK"
 
-          if [ ! -d "cio-project/app" ]; then
-            echo "HATA: app klasörü bulunamadı!"
-            exit 1
-          fi
-
-          if [ ! -f "cio-project/app/build.gradle.kts" ]; then
-            echo "HATA: app/build.gradle.kts bulunamadı!"
-            find cio-project -maxdepth 4 -type f | sort
-            exit 1
-          fi
-
-          if [ ! -f "cio-project/settings.gradle.kts" ]; then
-            echo "HATA: settings.gradle.kts bulunamadı!"
-            exit 1
-          fi
-
-          echo "Proje yapısı OK."
-
-      - name: Gradle sürümünü kontrol et
-        working-directory: cio-project
+      - name: APK derle
         run: |
-          gradle --version
+          cd "$PROJECT_DIR"
+          gradle --no-daemon :app:assembleDebug
 
-      - name: Android APK derle
-        working-directory: cio-project
+      - name: APK kontrol
         run: |
-          echo "=== APK DERLEME BAŞLIYOR ==="
-          gradle :app:assembleDebug --no-daemon --stacktrace --info
+          cd "$PROJECT_DIR"
+          ls -lh app/build/outputs/apk/debug/
+          test -f app/build/outputs/apk/debug/app-debug.apk
 
-      - name: APK dosyasını kontrol et
-        run: |
-          echo "=== APK DOSYALARI ==="
-          find cio-project/app/build/outputs -type f -name "*.apk" -print
-
-          if ! find cio-project/app/build/outputs -type f -name "*.apk" | grep -q ".apk"; then
-            echo "HATA: APK oluşturulamadı!"
-            exit 1
-          fi
-
-      - name: APK'yı yükle
+      - name: APK yükle
         uses: actions/upload-artifact@v4
         with:
-          name: CIO-Skor-APK
-          path: cio-project/app/build/outputs/apk/debug/app-debug.apk
+          name: CIO-Score-0.8.9-debug
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
