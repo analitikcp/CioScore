@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -29,143 +28,72 @@ jobs:
         with:
           gradle-version: '9.5.1'
 
-      - name: ZIP içindeki Android projesini bul
+      - name: SADECE FINAL ZIP'i aç
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
-          echo "=== REPO ==="
-          pwd
-          echo "=== ZIP DOSYALARI ==="
-          find . -type f -iname "*.zip" -print
+          ZIP="./CIO_Skor_6_KAYNAK_FINAL_BUILD.zip"
+
+          echo "=== KULLANILAN ZIP ==="
+          echo "$ZIP"
+
+          test -f "$ZIP" || {
+            echo "HATA: $ZIP bulunamadı."
+            exit 1
+          }
 
           rm -rf /tmp/cio_project
           mkdir -p /tmp/cio_project
+          unzip -q "$ZIP" -d /tmp/cio_project
 
-          FOUND=""
+          PROJECT_DIR="/tmp/cio_project"
+          test -d "$PROJECT_DIR/app"
+          test -f "$PROJECT_DIR/settings.gradle.kts" || test -f "$PROJECT_DIR/settings.gradle"
+          test -f "$PROJECT_DIR/app/build.gradle.kts" || test -f "$PROJECT_DIR/app/build.gradle"
 
-          while IFS= read -r -d '' ZIP; do
+          test -f "$PROJECT_DIR/app/src/main/java/com/cio/skor/data/MatchMerger.kt"
 
-            echo ""
-            echo "ZIP deneniyor: $ZIP"
-
-            TEST_DIR="/tmp/test_zip"
-            rm -rf "$TEST_DIR"
-            mkdir -p "$TEST_DIR"
-
-            unzip -q "$ZIP" -d "$TEST_DIR" || continue
-
-            APP_DIR=$(find "$TEST_DIR" -type d -name "app" -print -quit)
-
-            if [ -n "$APP_DIR" ]; then
-
-              PROJECT_DIR_TEST=$(dirname "$APP_DIR")
-
-              if [ -f "$PROJECT_DIR_TEST/settings.gradle.kts" ] || \
-                 [ -f "$PROJECT_DIR_TEST/settings.gradle" ]; then
-
-                echo "ANDROID PROJESİ BULUNDU!"
-                echo "APP: $APP_DIR"
-                echo "PROJECT: $PROJECT_DIR_TEST"
-
-                cp -a "$TEST_DIR/." /tmp/cio_project/
-
-                FOUND="YES"
-                break
-              fi
-            fi
-
-          done < <(find . -type f -iname "*.zip" -print0)
-
-          if [ "$FOUND" != "YES" ]; then
-            echo ""
-            echo "HATA: ZIP içinde Android projesi bulunamadı!"
-            echo ""
-            echo "Repo içeriği:"
-            find . -maxdepth 4 -type f -print
+          if grep -R "singleLine" -n "$PROJECT_DIR/app/src/main/java"; then
+            echo "HATA: Kotlin kaynaklarında singleLine bulundu."
             exit 1
           fi
 
-          FINAL_APP=$(find /tmp/cio_project -type d -name "app" -print -quit)
+          echo "=== DOĞRU PROJE DOĞRULANDI ==="
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
-          if [ -z "$FINAL_APP" ]; then
-            echo "HATA: app klasörü bulunamadı!"
-            exit 1
-          fi
-
-          FINAL_PROJECT=$(dirname "$FINAL_APP")
-
-          echo ""
-          echo "=== BULUNAN PROJE ==="
-          echo "$FINAL_PROJECT"
-
-          ls -la "$FINAL_PROJECT"
-
-          echo "PROJECT_DIR=$FINAL_PROJECT" >> "$GITHUB_ENV"
-
-      - name: Proje yapısını kontrol et
+      - name: Proje kontrol
         shell: bash
         run: |
-          set -e
-
+          set -euo pipefail
           cd "$PROJECT_DIR"
-
-          echo "=== PROJE KLASÖRÜ ==="
+          echo "=== PROJECT ==="
           pwd
-
-          echo "=== DOSYALAR ==="
-          ls -la
-
-          echo "=== APP ==="
-          ls -la app
-
-          test -d app
-          test -f settings.gradle.kts || test -f settings.gradle
-          test -f app/build.gradle.kts || test -f app/build.gradle
-
-          echo ""
-          echo "PROJE YAPISI OK!"
+          echo "=== MATCHMERGER ==="
+          grep -n "object MatchMerger" app/src/main/java/com/cio/skor/data/MatchMerger.kt
+          echo "=== MAINACTIVITY IMPORT ==="
+          grep -n "import com.cio.skor.data.MatchMerger" app/src/main/java/com/cio/skor/MainActivity.kt
 
       - name: APK derle
         shell: bash
         run: |
-          set -e
-
+          set -euo pipefail
           cd "$PROJECT_DIR"
-
           echo "=== APK DERLEME ==="
-
           gradle --no-daemon :app:assembleDebug
 
       - name: APK kontrol
         shell: bash
         run: |
-          set -e
-
-          echo "=== APK DOSYALARI ==="
-
-          find "$PROJECT_DIR/app/build/outputs" \
-            -type f \
-            -name "*.apk" \
-            -print
-
-          APK=$(find "$PROJECT_DIR/app/build/outputs" \
-            -type f \
-            -name "*.apk" \
-            -print -quit)
-
-          if [ -z "$APK" ]; then
-            echo "HATA: APK oluşmadı!"
-            exit 1
-          fi
-
-          echo ""
-          echo "APK HAZIR:"
+          set -euo pipefail
+          APK=$(find "$PROJECT_DIR/app/build/outputs" -type f -name "*.apk" -print -quit)
+          test -n "$APK"
+          echo "APK HAZIR: $APK"
           ls -lh "$APK"
 
       - name: APK yükle
         uses: actions/upload-artifact@v4
         with:
-          name: CIO-Score-4-Kaynak-APK
+          name: CIO-Score-6-Kaynak-FINAL-APK
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
