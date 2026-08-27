@@ -33,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          ZIP="./CIO_Skor_6_KAYNAK_FINAL_BUILD.zip"
+          ZIP="./CIO_SCORE_FINAL.zip"
 
           echo "=== KULLANILAN ZIP ==="
           echo "$ZIP"
