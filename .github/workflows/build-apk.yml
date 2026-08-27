@@ -23,12 +23,12 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Gradle kur
+      - name: Gradle 9.5.1 kur
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.5.1'
 
-      - name: Android projesini bul
+      - name: Android projesini hazırla
         shell: bash
         run: |
           set -euo pipefail
@@ -36,94 +36,70 @@ jobs:
           rm -rf /tmp/cio_project /tmp/cio_extract
           mkdir -p /tmp/cio_project /tmp/cio_extract
 
-          PROJECT_DIR=""
+          echo "=== REPO ZIP'LERİ ==="
+          find . -maxdepth 2 -type f -iname '*.zip' -not -path './.git/*' -print | sort
 
-          echo "=== REPO ==="
-          pwd
-          echo "=== ROOT ==="
-          find . -maxdepth 2 -type f -print | sort | head -200
-
-          # 1) Öncelik: repo kökünde doğrudan Android projesi.
-          if [ -f "settings.gradle.kts" ] || [ -f "settings.gradle" ]; then
-            if [ -f "app/build.gradle.kts" ] || [ -f "app/build.gradle" ]; then
-              PROJECT_DIR="$PWD"
-              echo "Android projesi repo kökünde bulundu."
-            fi
-          fi
-
-          # 2) Kök proje yoksa, ZIP'lerin içinden GERÇEK Android projesini bul.
-          if [ -z "$PROJECT_DIR" ]; then
-            FOUND_COUNT=0
-            FOUND_ZIP=""
-
+          # Öncelik: doğrudan proje ZIP'i.
+          if [ -f "./CioScore_DIRECT_PROJECT.zip" ]; then
+            SOURCE_ZIP="./CioScore_DIRECT_PROJECT.zip"
+          elif [ -f "./CIO_SCORE_FINAL(2).zip" ]; then
+            SOURCE_ZIP="./CIO_SCORE_FINAL(2).zip"
+          else
+            # Diğer ZIP'ler arasından ilk geçerli ZIP'i bul.
+            SOURCE_ZIP=""
             while IFS= read -r -d '' ZIP; do
-              echo ""
-              echo "ZIP kontrol ediliyor: $ZIP"
-
               rm -rf /tmp/cio_extract/*
-              if ! unzip -q "$ZIP" -d /tmp/cio_extract; then
-                echo "ZIP açılamadı, atlanıyor."
-                continue
+              unzip -q -o "$ZIP" -d /tmp/cio_extract
+
+              if find /tmp/cio_extract -type f \( -name 'settings.gradle.kts' -o -name 'settings.gradle' \) | grep -q . &&                  find /tmp/cio_extract -type f \( -path '*/app/build.gradle.kts' -o -path '*/app/build.gradle' \) | grep -q .; then
+                SOURCE_ZIP="$ZIP"
+                break
               fi
+            done < <(find . -maxdepth 2 -type f -iname '*.zip' -not -path './.git/*' -print0)
 
-              APP_DIR="$(find /tmp/cio_extract -type d -name app -print -quit || true)"
-              if [ -z "$APP_DIR" ]; then
-                continue
-              fi
-
-              TEST_PROJECT="$(dirname "$APP_DIR")"
-
-              if { [ -f "$TEST_PROJECT/settings.gradle.kts" ] || [ -f "$TEST_PROJECT/settings.gradle" ]; } &&                  { [ -f "$TEST_PROJECT/app/build.gradle.kts" ] || [ -f "$TEST_PROJECT/app/build.gradle" ]; }; then
-                FOUND_COUNT=$((FOUND_COUNT + 1))
-                FOUND_ZIP="$ZIP"
-                echo "Android projesi bu ZIP içinde bulundu: $ZIP"
-              fi
-            done < <(find . -type f -iname '*.zip'               -not -path './.git/*'               -print0)
-
-            if [ "$FOUND_COUNT" -ne 1 ]; then
-              echo ""
-              echo "HATA: Tam olarak 1 kullanılabilir Android ZIP'i bulunmalı."
-              echo "Bulunan uygun ZIP sayısı: $FOUND_COUNT"
-              echo ""
-              echo "ZIP listesi:"
-              find . -type f -iname '*.zip' -not -path './.git/*' -print
+            if [ -z "$SOURCE_ZIP" ]; then
+              echo "HATA: Android proje ZIP'i bulunamadı."
               exit 1
             fi
-
-            rm -rf /tmp/cio_extract/*
-            unzip -q "$FOUND_ZIP" -d /tmp/cio_extract
-
-            APP_DIR="$(find /tmp/cio_extract -type d -name app -print -quit)"
-            PROJECT_DIR="$(dirname "$APP_DIR")"
-
-            cp -a "$PROJECT_DIR/." /tmp/cio_project/
-            PROJECT_DIR="/tmp/cio_project"
-
-            echo "ZIP'ten Android projesi çıkarıldı."
-          else
-            # Kök projeyi geçici klasöre kopyala; build çıktıları repo içine karışmasın.
-            cp -a . /tmp/cio_project/
-            PROJECT_DIR="/tmp/cio_project"
           fi
 
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "=== KULLANILAN ZIP ==="
+          echo "$SOURCE_ZIP"
+
+          # TEK SEFERDE ve -o ile açılır; interaktif 'replace?' sorusu yok.
+          rm -rf /tmp/cio_extract/*
+          unzip -q -o "$SOURCE_ZIP" -d /tmp/cio_extract
+
+          SETTINGS_FILE="$(find /tmp/cio_extract -type f \( -name 'settings.gradle.kts' -o -name 'settings.gradle' \) -print -quit)"
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "HATA: settings.gradle(.kts) bulunamadı."
+            exit 1
+          fi
+
+          PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
+
+          if [ ! -f "$PROJECT_DIR/app/build.gradle.kts" ] && [ ! -f "$PROJECT_DIR/app/build.gradle" ]; then
+            echo "HATA: $PROJECT_DIR/app/build.gradle(.kts) bulunamadı."
+            exit 1
+          fi
+
+          cp -a "$PROJECT_DIR/." /tmp/cio_project/
+
+          echo "PROJECT_DIR=/tmp/cio_project" >> "$GITHUB_ENV"
 
           echo ""
-          echo "=== KULLANILAN PROJE ==="
-          echo "$PROJECT_DIR"
+          echo "=== ANDROID PROJESİ ==="
+          cd /tmp/cio_project
+          pwd
+          ls -la
           echo ""
-
-          test -f "$PROJECT_DIR/settings.gradle.kts" || test -f "$PROJECT_DIR/settings.gradle"
-          test -f "$PROJECT_DIR/app/build.gradle.kts" || test -f "$PROJECT_DIR/app/build.gradle"
-
-          echo "=== APP ==="
-          find "$PROJECT_DIR/app" -maxdepth 3 -type f -print | sort | head -200
+          echo "=== KAYNAKLAR ==="
+          find app/src/main -type f \( -name '*.kt' -o -name '*.java' \) -print | sort
 
       - name: APK derle
         shell: bash
         run: |
           set -euo pipefail
-
           cd "$PROJECT_DIR"
 
           echo "=== APK DERLEME ==="
@@ -135,17 +111,15 @@ jobs:
           set -euo pipefail
 
           echo "=== APK DOSYALARI ==="
+          find "$PROJECT_DIR/app/build/outputs" -type f -name '*.apk' -print
 
-          find "$PROJECT_DIR/app/build/outputs"             -type f             -name '*.apk'             -print
-
-          APK="$(find "$PROJECT_DIR/app/build/outputs"             -type f             -name '*.apk'             -print -quit)"
+          APK="$(find "$PROJECT_DIR/app/build/outputs" -type f -name '*.apk' -print -quit)"
 
           if [ -z "$APK" ]; then
             echo "HATA: APK oluşmadı!"
             exit 1
           fi
 
-          echo ""
           echo "APK HAZIR:"
           ls -lh "$APK"
 
