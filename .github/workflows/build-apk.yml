@@ -28,7 +28,7 @@ jobs:
         with:
           gradle-version: '9.5.1'
 
-      - name: SADECE FINAL ZIP'i aç
+      - name: CIO_SCORE_FINAL ZIP'i aç
         shell: bash
         run: |
           set -euo pipefail
@@ -94,6 +94,6 @@ jobs:
       - name: APK yükle
         uses: actions/upload-artifact@v4
         with:
-          name: CIO-Score-6-Kaynak-FINAL-APK
+          name: CIO_SCORE_FINAL-APK
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
