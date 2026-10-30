@@ -36,7 +36,7 @@ jobs:
           rm -rf /tmp/cio_project /tmp/cio_extract
           mkdir -p /tmp/cio_project /tmp/cio_extract
 
-          SOURCE_ZIP="./CioScore_v0.9.24_buildfix2.zip"
+          SOURCE_ZIP="./CioScore_v0.9.24_buildfix.zip"
 
           echo "=== KULLANILACAK ZIP ==="
           echo "$SOURCE_ZIP"
